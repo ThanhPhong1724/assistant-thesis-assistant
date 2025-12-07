@@ -78,6 +78,10 @@ class ApiClient {
         return this.request<any>(`/format-profiles/${id}`);
     }
 
+    async getProfileResolved(id: number) {
+        return this.request<any>(`/format-profiles/${id}/resolved`);
+    }
+
     // Documents
     async getDocuments(token: string) {
         return this.request<any[]>('/documents', { token });

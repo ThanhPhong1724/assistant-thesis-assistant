@@ -7,6 +7,7 @@ import { NodesModule } from './modules/nodes/nodes.module';
 import { ProfilesModule } from './modules/profiles/profiles.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { ExportModule } from './modules/export/export.module';
+import { AiModule } from './modules/ai/ai.module';
 import { PrismaModule } from './common/prisma/prisma.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
         NodesModule,
         ProfilesModule,
         ExportModule,
+        AiModule,
     ],
 })
 export class AppModule { }
