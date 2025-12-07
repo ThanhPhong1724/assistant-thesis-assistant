@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth';
 import { api } from '@/lib/api';
+import { ContentEditor } from '@/components/editor/content-editor';
 
 interface DocNode {
     id: number;
@@ -34,6 +35,8 @@ export default function DocumentPage({ params }: { params: { id: string } }) {
     const [nodes, setNodes] = useState<DocNode[]>([]);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
+    const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+    const [editorContent, setEditorContent] = useState('');
 
     const documentId = parseInt(params.id);
 
@@ -88,6 +91,29 @@ export default function DocumentPage({ params }: { params: { id: string } }) {
         router.push('/');
     };
 
+    const handleNodeSelect = (nodeId: number, content: string) => {
+        setSelectedNodeId(nodeId);
+        setEditorContent(content || '');
+    };
+
+    const handleSaveContent = useCallback(async () => {
+        if (!token || !selectedNodeId) return;
+        try {
+            await api.updateNode(documentId, selectedNodeId, {
+                contentPlain: editorContent.replace(/<[^>]*>/g, ''), // Strip HTML for plain text
+            }, token);
+            // Reload to get updated tree
+            loadDocument();
+        } catch (error) {
+            console.error('Failed to save:', error);
+        }
+    }, [token, selectedNodeId, editorContent, documentId]);
+
+    const getSelectedNode = (): DocNode | null => {
+        if (!selectedNodeId) return null;
+        return findNode(nodes, selectedNodeId);
+    };
+
     if (!isAuthenticated || loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -99,6 +125,8 @@ export default function DocumentPage({ params }: { params: { id: string } }) {
     if (!document) {
         return null;
     }
+
+    const selectedNode = getSelectedNode();
 
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -140,7 +168,7 @@ export default function DocumentPage({ params }: { params: { id: string } }) {
             {/* Main Layout */}
             <div className="flex-1 flex">
                 {/* Sidebar - Outline */}
-                <aside className="w-80 bg-white border-r overflow-y-auto">
+                <aside className="w-80 bg-white border-r overflow-y-auto flex-shrink-0">
                     <div className="p-4 border-b flex justify-between items-center">
                         <h2 className="font-semibold text-gray-700">Đề cương</h2>
                         <AddNodeButton
@@ -154,17 +182,38 @@ export default function DocumentPage({ params }: { params: { id: string } }) {
                         documentId={documentId}
                         token={token!}
                         onUpdate={loadDocument}
+                        selectedNodeId={selectedNodeId}
+                        onSelect={handleNodeSelect}
                     />
                 </aside>
 
                 {/* Content Area */}
                 <main className="flex-1 p-6 overflow-y-auto">
                     <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border p-8">
-                        <div className="text-center text-gray-400 py-20">
-                            <div className="text-6xl mb-4">📝</div>
-                            <p className="text-lg">Chọn một mục từ đề cương để bắt đầu viết</p>
-                            <p className="text-sm mt-2">Hoặc thêm chương mới từ sidebar bên trái</p>
-                        </div>
+                        {selectedNode ? (
+                            <>
+                                <div className="mb-6 pb-4 border-b">
+                                    <span className="text-xs text-gray-400 uppercase tracking-wider">
+                                        {selectedNode.nodeType === 'CHAPTER' ? 'Chương' : 'Mục'}
+                                    </span>
+                                    <h2 className="text-2xl font-bold text-gray-800 mt-1">
+                                        {selectedNode.contentPlain || 'Chưa có tiêu đề'}
+                                    </h2>
+                                </div>
+                                <ContentEditor
+                                    content={editorContent}
+                                    onChange={setEditorContent}
+                                    onSave={handleSaveContent}
+                                    placeholder="Bắt đầu viết nội dung cho mục này..."
+                                />
+                            </>
+                        ) : (
+                            <div className="text-center text-gray-400 py-20">
+                                <div className="text-6xl mb-4">📝</div>
+                                <p className="text-lg">Chọn một mục từ đề cương để bắt đầu viết</p>
+                                <p className="text-sm mt-2">Hoặc thêm chương mới từ sidebar bên trái</p>
+                            </div>
+                        )}
                     </div>
                 </main>
             </div>
@@ -172,16 +221,31 @@ export default function DocumentPage({ params }: { params: { id: string } }) {
     );
 }
 
+function findNode(nodes: DocNode[], id: number): DocNode | null {
+    for (const node of nodes) {
+        if (node.id === id) return node;
+        if (node.children) {
+            const found = findNode(node.children, id);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
 function OutlineTree({
     nodes,
     documentId,
     token,
     onUpdate,
+    selectedNodeId,
+    onSelect,
 }: {
     nodes: DocNode[];
     documentId: number;
     token: string;
     onUpdate: () => void;
+    selectedNodeId: number | null;
+    onSelect: (nodeId: number, content: string) => void;
 }) {
     // Find MAIN section group and render its children
     const documentRoot = nodes[0];
@@ -199,6 +263,8 @@ function OutlineTree({
                     documentId={documentId}
                     token={token}
                     onUpdate={onUpdate}
+                    selectedNodeId={selectedNodeId}
+                    onSelect={onSelect}
                 />
             ))}
             {(!mainGroup?.children || mainGroup.children.length === 0) && (
@@ -216,16 +282,22 @@ function OutlineNode({
     documentId,
     token,
     onUpdate,
+    selectedNodeId,
+    onSelect,
 }: {
     node: DocNode;
     depth: number;
     documentId: number;
     token: string;
     onUpdate: () => void;
+    selectedNodeId: number | null;
+    onSelect: (nodeId: number, content: string) => void;
 }) {
     const [expanded, setExpanded] = useState(true);
+    const [showAddMenu, setShowAddMenu] = useState(false);
     const hasChildren = node.children && node.children.length > 0;
     const paddingLeft = depth * 16 + 8;
+    const isSelected = selectedNodeId === node.id;
 
     const getIcon = () => {
         if (node.nodeType === 'CHAPTER') return '📖';
@@ -239,7 +311,12 @@ function OutlineNode({
         return node.contentPlain || 'Nội dung';
     };
 
-    const handleDelete = async () => {
+    const handleClick = () => {
+        onSelect(node.id, node.contentPlain || '');
+    };
+
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation();
         if (!confirm('Xóa mục này và tất cả nội dung bên trong?')) return;
         try {
             await api.deleteNode(documentId, node.id, token);
@@ -249,33 +326,88 @@ function OutlineNode({
         }
     };
 
+    const handleAddSection = async () => {
+        setShowAddMenu(false);
+        try {
+            const existingSections = node.children?.filter((n) => n.nodeType === 'SECTION') || [];
+            await api.createNode(documentId, {
+                parentId: node.id,
+                position: existingSections.length,
+                nodeType: 'SECTION',
+                level: node.nodeType === 'CHAPTER' ? 1 : 2,
+                contentPlain: `Mục mới`,
+            }, token);
+            onUpdate();
+        } catch (error) {
+            console.error('Failed to add section:', error);
+        }
+    };
+
     // Only show chapters and sections
     if (!['CHAPTER', 'SECTION'].includes(node.nodeType)) return null;
 
     return (
         <div>
             <div
-                className="flex items-center gap-2 py-2 px-2 hover:bg-gray-50 rounded cursor-pointer group"
+                onClick={handleClick}
+                className={`flex items-center gap-2 py-2 px-2 rounded cursor-pointer group transition ${isSelected
+                        ? 'bg-blue-50 border-l-2 border-blue-600'
+                        : 'hover:bg-gray-50'
+                    }`}
                 style={{ paddingLeft }}
             >
-                {hasChildren && (
+                {hasChildren ? (
                     <button
-                        onClick={() => setExpanded(!expanded)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setExpanded(!expanded);
+                        }}
                         className="text-gray-400 hover:text-gray-600 w-4"
                     >
                         {expanded ? '▼' : '▶'}
                     </button>
+                ) : (
+                    <div className="w-4" />
                 )}
-                {!hasChildren && <div className="w-4" />}
                 <span>{getIcon()}</span>
-                <span className="flex-1 text-sm text-gray-700 truncate">{getLabel()}</span>
-                <button
-                    onClick={handleDelete}
-                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs"
-                >
-                    🗑
-                </button>
+                <span className={`flex-1 text-sm truncate ${isSelected ? 'text-blue-700 font-medium' : 'text-gray-700'}`}>
+                    {getLabel()}
+                </span>
+                <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                    {node.nodeType === 'CHAPTER' && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowAddMenu(!showAddMenu);
+                            }}
+                            className="text-blue-400 hover:text-blue-600 text-xs"
+                            title="Thêm mục con"
+                        >
+                            ➕
+                        </button>
+                    )}
+                    <button
+                        onClick={handleDelete}
+                        className="text-red-400 hover:text-red-600 text-xs"
+                        title="Xóa"
+                    >
+                        🗑
+                    </button>
+                </div>
             </div>
+
+            {/* Add section popup */}
+            {showAddMenu && (
+                <div className="ml-10 mb-2">
+                    <button
+                        onClick={handleAddSection}
+                        className="text-xs text-blue-600 hover:text-blue-800 py-1 px-2 bg-blue-50 rounded"
+                    >
+                        + Thêm mục trong chương này
+                    </button>
+                </div>
+            )}
+
             {expanded && hasChildren && (
                 <div>
                     {node.children!
@@ -288,6 +420,8 @@ function OutlineNode({
                                 documentId={documentId}
                                 token={token}
                                 onUpdate={onUpdate}
+                                selectedNodeId={selectedNodeId}
+                                onSelect={onSelect}
                             />
                         ))}
                 </div>
