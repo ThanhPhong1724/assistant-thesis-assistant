@@ -1,0 +1,264 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USERS & AUTH ============
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  role         UserRole  @default(STUDENT)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  documents       Document[]
+  uploadedFiles   UploadedFile[]
+  formatProfiles  FormatProfile[]
+  aiRequests      AiRequest[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  STUDENT
+  ADMIN
+}
+
+// ============ ORGANIZATION ============
+model School {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  faculties      Faculty[]
+  documents      Document[]
+  formatProfiles FormatProfile[]
+
+  @@map("schools")
+}
+
+model Faculty {
+  id          Int       @id @default(autoincrement())
+  schoolId    Int       @map("school_id")
+  code        String
+  name        String
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  school         School          @relation(fields: [schoolId], references: [id])
+  documents      Document[]
+  formatProfiles FormatProfile[]
+
+  @@unique([schoolId, code])
+  @@map("faculties")
+}
+
+model ProgramType {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique
+  name        String
+  description String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  documents      Document[]
+  formatProfiles FormatProfile[]
+
+  @@map("program_types")
+}
+
+// ============ FORMAT PROFILES ============
+model FormatProfile {
+  id              Int       @id @default(autoincrement())
+  code            String    @unique
+  name            String
+  description     String?
+  schoolId        Int?      @map("school_id")
+  facultyId       Int?      @map("faculty_id")
+  programTypeId   Int?      @map("program_type_id")
+  baseProfileId   Int?      @map("base_profile_id")
+  configJson      Json      @map("config_json")
+  isDefault       Boolean   @default(false) @map("is_default")
+  createdById     Int       @map("created_by")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  school            School?           @relation(fields: [schoolId], references: [id])
+  faculty           Faculty?          @relation(fields: [facultyId], references: [id])
+  programType       ProgramType?      @relation(fields: [programTypeId], references: [id])
+  baseProfile       FormatProfile?    @relation("ProfileInheritance", fields: [baseProfileId], references: [id])
+  childProfiles     FormatProfile[]   @relation("ProfileInheritance")
+  createdBy         User              @relation(fields: [createdById], references: [id])
+  documents         Document[]
+  validationReports ValidationReport[]
+
+  @@map("format_profiles")
+}
+
+// ============ DOCUMENTS ============
+model Document {
+  id               Int            @id @default(autoincrement())
+  userId           Int            @map("user_id")
+  schoolId         Int            @map("school_id")
+  facultyId        Int            @map("faculty_id")
+  programTypeId    Int            @map("program_type_id")
+  formatProfileId  Int            @map("format_profile_id")
+  title            String
+  topicDescription String?        @map("topic_description")
+  year             Int
+  status           DocumentStatus @default(DRAFT)
+  outlineLocked    Boolean        @default(false) @map("outline_locked")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+  deletedAt        DateTime?      @map("deleted_at")
+
+  user          User          @relation(fields: [userId], references: [id])
+  school        School        @relation(fields: [schoolId], references: [id])
+  faculty       Faculty       @relation(fields: [facultyId], references: [id])
+  programType   ProgramType   @relation(fields: [programTypeId], references: [id])
+  formatProfile FormatProfile @relation(fields: [formatProfileId], references: [id])
+  nodes         DocNode[]
+  uploadedFiles UploadedFile[]
+  aiRequests    AiRequest[]
+
+  @@index([userId])
+  @@map("documents")
+}
+
+enum DocumentStatus {
+  DRAFT
+  OUTLINE_LOCKED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ============ DOCUMENT NODES ============
+model DocNode {
+  id                   Int              @id @default(autoincrement())
+  documentId           Int              @map("document_id")
+  parentId             Int?             @map("parent_id")
+  position             Int
+  nodeType             NodeType         @map("node_type")
+  sectionGroupType     SectionGroupType? @map("section_group_type")
+  level                Int?
+  semanticRole         String?          @map("semantic_role")
+  styleKeyOverride     String?          @map("style_key_override")
+  numberingKeyOverride String?          @map("numbering_key_override")
+  contentPlain         String?          @map("content_plain")
+  inlineJson           Json?            @map("inline_json")
+  dataJson             Json?            @map("data_json")
+  isGenerated          Boolean          @default(false) @map("is_generated")
+  origin               NodeOrigin       @default(USER)
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  document      Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  parent        DocNode?       @relation("NodeHierarchy", fields: [parentId], references: [id])
+  children      DocNode[]      @relation("NodeHierarchy")
+  uploadedFiles UploadedFile[]
+
+  @@index([documentId])
+  @@index([documentId, parentId, position])
+  @@map("doc_nodes")
+}
+
+enum NodeType {
+  DOCUMENT_ROOT
+  SECTION_GROUP
+  CHAPTER
+  SECTION
+  PARAGRAPH
+  LIST
+  LIST_ITEM
+  TABLE
+  FIGURE
+  EQUATION
+  REFERENCE_LIST
+  REFERENCE_ITEM
+  GENERATED_BLOCK
+  COVER_PAGE
+}
+
+enum SectionGroupType {
+  FRONT
+  MAIN
+  BACK
+}
+
+enum NodeOrigin {
+  USER
+  AI
+  IMPORT
+}
+
+// ============ FILES ============
+model UploadedFile {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  documentId Int      @map("document_id")
+  nodeId     Int?     @map("node_id")
+  fileType   String   @map("file_type")
+  filePath   String   @map("file_path")
+  fileName   String   @map("file_name")
+  mimeType   String   @map("mime_type")
+  sizeBytes  BigInt   @map("size_bytes")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id])
+  document Document @relation(fields: [documentId], references: [id])
+  node     DocNode? @relation(fields: [nodeId], references: [id])
+
+  @@index([documentId])
+  @@map("uploaded_files")
+}
+
+// ============ AI REQUESTS ============
+model AiRequest {
+  id           Int      @id @default(autoincrement())
+  documentId   Int      @map("document_id")
+  nodeId       Int?     @map("node_id")
+  userId       Int      @map("user_id")
+  requestType  String   @map("request_type")
+  provider     String
+  model        String
+  prompt       String
+  response     String?
+  status       String   @default("pending")
+  errorMessage String?  @map("error_message")
+  tokensInput  Int?     @map("tokens_input")
+  tokensOutput Int?     @map("tokens_output")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@map("ai_requests")
+}
+
+// ============ VALIDATION ============
+model ValidationReport {
+  id              Int      @id @default(autoincrement())
+  documentId      Int?     @map("document_id")
+  formatProfileId Int      @map("format_profile_id")
+  status          String
+  scorePercent    Decimal  @map("score_percent") @db.Decimal(5, 2)
+  resultJson      Json     @map("result_json")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  formatProfile FormatProfile @relation(fields: [formatProfileId], references: [id])
+
+  @@map("validation_reports")
+}

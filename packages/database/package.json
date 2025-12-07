@@ -1,0 +1,29 @@
+{
+    "name": "@thesis/database",
+    "version": "0.1.0",
+    "private": true,
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch",
+        "generate": "dotenv -e ../../.env -- prisma generate",
+        "push": "dotenv -e ../../.env -- prisma db push",
+        "migrate": "dotenv -e ../../.env -- prisma migrate dev",
+        "studio": "dotenv -e ../../.env -- prisma studio",
+        "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
+        "clean": "rimraf dist .prisma"
+    },
+    "dependencies": {
+        "@prisma/client": "^5.22.0",
+        "bcrypt": "^5.1.1"
+    },
+    "devDependencies": {
+        "@types/bcrypt": "^5.0.2",
+        "dotenv-cli": "^7.3.0",
+        "prisma": "^5.22.0",
+        "rimraf": "^5.0.5",
+        "tsx": "^4.7.0",
+        "typescript": "^5.3.0"
+    }
+}
