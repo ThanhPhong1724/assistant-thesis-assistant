@@ -33,14 +33,59 @@ pnpm dev
 ```
 
 ### Truy cập
-- **Frontend**: http://localhost:3000
-- **API**: http://localhost:3001
-- **Swagger Docs**: http://localhost:3001/api/docs
-- **MinIO Console**: http://localhost:9001
+| Service | URL |
+|---------|-----|
+| **Frontend** | http://localhost:3000 |
+| **API** | http://localhost:3001 |
+| **Swagger Docs** | http://localhost:3001/api/docs |
+| **MinIO Console** | http://localhost:9001 |
 
 ### Tài khoản demo
-- **Admin**: admin@thesis.local / admin123
-- **Student**: student@thesis.local / student123
+- **Admin**: `admin@thesis.local` / `admin123`
+- **Student**: `student@thesis.local` / `student123`
+
+---
+
+## 📱 Hướng dẫn sử dụng
+
+### 1. Đăng nhập
+1. Truy cập http://localhost:3000/login
+2. Nhập email và password
+3. Click "Đăng nhập"
+
+### 2. Dashboard
+- Xem danh sách tài liệu đã tạo
+- Click "Tạo tài liệu mới" để bắt đầu
+
+### 3. Tạo tài liệu mới
+1. Click **+ Tạo tài liệu mới**
+2. Điền thông tin:
+   - Tên đề tài
+   - Mô tả (tùy chọn)
+   - Chọn Trường, Khoa
+   - Chọn loại tài liệu (Đồ án, Luận văn...)
+   - Chọn Format chuẩn
+3. Click **Tạo tài liệu**
+
+### 4. Soạn thảo nội dung
+1. Từ Dashboard → Click vào tài liệu
+2. **Sidebar trái**: Đề cương
+   - Click **+** để thêm chương mới
+   - Click vào chương để chọn
+3. **Vùng soạn thảo**: 
+   - Toolbar: Bold, Italic, H2, H3, Lists, Quote, Code
+   - Auto-save sau 2 giây
+   - Hoặc nhấn **Ctrl+S** để lưu ngay
+
+### 5. Xuất file Word
+- Click nút **📄 Xuất Word** ở header
+- File .docx sẽ tự động download với format chuẩn
+
+### 6. Format Lab
+- Truy cập `/format-lab` để xem chi tiết format profiles
+- Tabs: Trang, Styles, Đánh số, Mục lục, JSON
+
+---
 
 ## 📁 Cấu trúc dự án
 
@@ -56,35 +101,92 @@ thesis-assistant/
 └── turbo.json
 ```
 
+---
+
 ## 🛠 Tech Stack
 
-- **Backend**: NestJS, Prisma, PostgreSQL
-- **Frontend**: Next.js 14, Tailwind CSS, TanStack Query
-- **Auth**: JWT + Passport
-- **Export**: docx.js
-- **DevOps**: Docker, Turborepo, pnpm
+| Layer | Technology |
+|-------|------------|
+| **Backend** | NestJS, Prisma, PostgreSQL |
+| **Frontend** | Next.js 14, Tailwind CSS, Zustand |
+| **Auth** | JWT + Passport |
+| **Export** | docx.js |
+| **Editor** | TipTap |
+| **DevOps** | Docker, Turborepo, pnpm |
+
+---
 
 ## 📚 Features
 
-- ✅ Quản lý tài liệu (CRUD)
-- ✅ Cây nội dung (chapters, sections, paragraphs)
-- ✅ Format profiles theo quy định trường
-- ✅ Xuất file Word chuẩn format
-- 🔄 AI gợi ý nội dung (coming soon)
-- 🔄 Kiểm tra format file Word (coming soon)
+### ✅ Đã hoàn thành
 
+| Feature | Mô tả |
+|---------|-------|
+| **Authentication** | Đăng nhập/Đăng ký với JWT |
+| **Document CRUD** | Tạo, xem, sửa, xóa tài liệu |
+| **Outline Editor** | Quản lý cây đề cương (chapters/sections) |
+| **Content Editor** | Rich text editor với TipTap |
+| **Word Export** | Xuất file .docx chuẩn format |
+| **Format Lab** | Xem chi tiết format profiles |
+| **AI Integration** | Multi-provider (Groq, Gemini, OpenRouter, Ollama, OpenAI) |
+| **Validation** | Kiểm tra document theo format profile |
+| **Admin Dashboard** | Quản trị hệ thống |
 
-Chức năng có thể test ngay
-Đăng nhập/Đăng ký
-http://localhost:3000/login
-Tài khoản: 
-admin@thesis.local
-admin123
+### 🔄 Coming Soon
+- PDF Export
+- Word file validation
+- Responsive mobile design
 
-API Swagger Docs
-http://localhost:3001/api/docs
-Test tất cả endpoints API
-CRUD Documents (qua API)
-Tạo, xem, sửa, xóa tài liệu
-Xuất Word (qua API)
-POST /api/documents/{id}/export/word
+---
+
+## 🔌 API Endpoints
+
+### Auth
+```
+POST /api/auth/register    - Đăng ký
+POST /api/auth/login       - Đăng nhập
+GET  /api/auth/me          - Lấy thông tin user
+```
+
+### Documents
+```
+GET  /api/documents        - Danh sách tài liệu
+POST /api/documents        - Tạo tài liệu
+GET  /api/documents/:id    - Chi tiết tài liệu
+PUT  /api/documents/:id    - Cập nhật
+POST /api/documents/:id/export/word  - Xuất Word
+GET  /api/documents/:id/validation   - Kiểm tra format
+```
+
+### AI (Yêu cầu API keys trong .env)
+```
+GET  /api/ai/providers        - Danh sách providers khả dụng
+POST /api/ai/suggest-outline  - Gợi ý đề cương
+POST /api/ai/suggest-content  - Gợi ý nội dung
+POST /api/ai/rewrite-academic - Viết lại văn phong học thuật
+```
+
+---
+
+## ⚙️ Environment Variables
+
+```env
+# Database
+DATABASE_URL=postgresql://thesis:thesis@localhost:5432/thesis_db
+
+# JWT
+JWT_SECRET=your-super-secret-key
+
+# AI Providers (optional)
+GROQ_API_KEY=your-groq-key
+GEMINI_API_KEY=your-gemini-key
+OPENROUTER_API_KEY=your-openrouter-key
+OLLAMA_BASE_URL=http://localhost:11434
+OPENAI_API_KEY=your-openai-key
+```
+
+---
+
+## 📝 License
+
+MIT
