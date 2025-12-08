@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/stores/auth';
+import { useAuthStore, useAuthHydration } from '@/stores/auth';
 import { api } from '@/lib/api';
 
 interface FormatProfile {
@@ -19,18 +19,22 @@ interface FormatProfile {
 
 export default function FormatLabPage() {
     const router = useRouter();
+    const isHydrated = useAuthHydration();
     const { isAuthenticated, token, user, logout } = useAuthStore();
     const [profiles, setProfiles] = useState<FormatProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedProfile, setSelectedProfile] = useState<FormatProfile | null>(null);
 
     useEffect(() => {
+        // Wait for hydration before checking auth
+        if (!isHydrated) return;
+
         if (!isAuthenticated) {
             router.push('/login');
             return;
         }
         loadProfiles();
-    }, [isAuthenticated, router]);
+    }, [isHydrated, isAuthenticated, router]);
 
     const loadProfiles = async () => {
         try {
@@ -50,6 +54,15 @@ export default function FormatLabPage() {
         logout();
         router.push('/');
     };
+
+    // Show loading while hydrating
+    if (!isHydrated) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+            </div>
+        );
+    }
 
     if (!isAuthenticated) return null;
 
@@ -90,8 +103,8 @@ export default function FormatLabPage() {
                                     key={profile.id}
                                     onClick={() => setSelectedProfile(profile)}
                                     className={`w-full text-left p-3 rounded-lg mb-1 transition ${selectedProfile?.id === profile.id
-                                            ? 'bg-blue-50 border border-blue-200'
-                                            : 'hover:bg-gray-50'
+                                        ? 'bg-blue-50 border border-blue-200'
+                                        : 'hover:bg-gray-50'
                                         }`}
                                 >
                                     <div className="font-medium text-sm text-gray-800">{profile.name}</div>
@@ -193,8 +206,8 @@ function ProfileEditor({
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`px-4 py-3 text-sm font-medium transition border-b-2 -mb-px ${activeTab === tab.id
-                                    ? 'border-blue-600 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
                                 }`}
                         >
                             {tab.icon} {tab.label}
