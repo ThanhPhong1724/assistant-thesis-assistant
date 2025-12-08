@@ -77,7 +77,10 @@ thesis-assistant/
 Chức năng có thể test ngay
 Đăng nhập/Đăng ký
 http://localhost:3000/login
-Tài khoản: admin@thesis.local / admin123
+Tài khoản: 
+admin@thesis.local
+admin123
+
 API Swagger Docs
 http://localhost:3001/api/docs
 Test tất cả endpoints API

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuthStore } from '@/stores/auth';
+import { useAuthStore, useAuthHydration } from '@/stores/auth';
 import { api } from '@/lib/api';
 
 interface Document {
@@ -19,18 +19,20 @@ interface Document {
 
 export default function DashboardPage() {
     const router = useRouter();
+    const isHydrated = useAuthHydration();
     const { isAuthenticated, user, token, logout } = useAuthStore();
     const [documents, setDocuments] = useState<Document[]>([]);
     const [loading, setLoading] = useState(true);
     const [showNewDocModal, setShowNewDocModal] = useState(false);
 
     useEffect(() => {
+        if (!isHydrated) return;
         if (!isAuthenticated) {
             router.push('/login');
             return;
         }
         loadDocuments();
-    }, [isAuthenticated, router]);
+    }, [isHydrated, isAuthenticated, router]);
 
     const loadDocuments = async () => {
         if (!token) return;
@@ -68,6 +70,14 @@ export default function DashboardPage() {
             </span>
         );
     };
+
+    if (!isHydrated) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+            </div>
+        );
+    }
 
     if (!isAuthenticated) {
         return null;
